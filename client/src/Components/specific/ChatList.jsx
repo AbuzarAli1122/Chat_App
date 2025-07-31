@@ -8,7 +8,7 @@ const ChatList =  ({w='100%', chats=[],chatId,onlineUsers=[],newMessagesAlert=[{
 }],handleDeleteChat,avatar}) => {
   return (
     <>
-      <Stack width={w} direction={'column'}>
+      <Stack width={w} direction={'column'} overflow={'auto'} height={'100%'}>
     {
         chats?.map((data,index) => {
 
