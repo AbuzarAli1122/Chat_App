@@ -71,6 +71,13 @@ const acceptRequestValidator = ()=>[
 
 ];
 
+const adminLoginValidator = ()=>[
+    body('secretKey','Please Enter Secret Key').notEmpty(),
+  
+
+];
+
+
 
 export {
     registerValidator,
@@ -84,4 +91,5 @@ export {
     renameGroupValidator,
     sendRequstValidator,
     acceptRequestValidator,
+    adminLoginValidator,
 }
