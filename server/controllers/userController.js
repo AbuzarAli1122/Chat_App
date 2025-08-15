@@ -4,7 +4,7 @@ import {Chat} from '../models/chat.js'
 import {Request} from '../models/request.js'
 
 
-import { cookieOptions, emitEvent, sendToken } from '../utils/feature.js';
+import { cookieOptions, emitEvent, sendToken, uploadFilesToCloudinary } from '../utils/feature.js';
 import { TryCatch } from '../middlewares/error.js';
 import { ErrorHandler } from '../utils/utility.js';
 import { NEW_REQUEST, REFETCH_CHATS } from '../constants/events.js';
@@ -12,18 +12,23 @@ import { getOtherMember } from '../lib/helper.js';
 
 
 // create a new user 
-const newUser = async (req, res) => {
+const newUser = async (req, res,next) => {
     try {
         const { name, username, password,bio } = req.body;
 
-         const existingUser = await User.findOne({ username });
+    const existingUser = await User.findOne({ username });
     if (existingUser) {
       return res.status(400).json({ message: "Username already taken" });
     }
 
+    const file =req.file;
+    if(!file) return next(new ErrorHandler("Please upload a  Avatar",400));
+
+    const result = await uploadFilesToCloudinary([file]);
+
         const avatar = {
-            public_id: 'asdf',
-            url: 'https://example.com/image.jpg',
+            public_id: result[0].public_id,  
+            url: result[0].url,
         };
 
         const user = await User.create({ name, bio,username, password, avatar });

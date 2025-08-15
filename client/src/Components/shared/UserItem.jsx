@@ -2,6 +2,7 @@ import { Avatar, IconButton, ListItem, ListItemText, Stack, Typography } from '@
 import React, { memo } from 'react'
 import {Add as AddIcon} from '@mui/icons-material'
 import {Remove as RemoveIcon} from '@mui/icons-material'
+import { transformImage } from '../../lib/features'
  
 const UserItem = ({user,handler,handlerIsLoading,isAdded=false, styling = {} }) => {
 
@@ -9,7 +10,7 @@ const UserItem = ({user,handler,handlerIsLoading,isAdded=false, styling = {} }) 
   return (
     <ListItem >
         <Stack direction={'row'} alignItems={'center'} spacing={'1rem'} width={'100%'} {...styling}>
-            <Avatar/>
+            <Avatar src={transformImage(avatar)} />
             <Typography
             variant='body1'
             sx={{
