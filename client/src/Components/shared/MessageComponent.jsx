@@ -7,10 +7,16 @@ import RenderAttachments from './RenderAttachments'
 
 const MessageComponent = ({message,user}) => {
 
-    const {sender,content,attachments=[],createdAt} = message
-    const sameSender = sender?._id === user?._id
+    const {sender,content,attachments=[],createdAt} = message;
 
-    const timeAgo = moment(createdAt).fromNow()
+   if (!user || !sender) return null;
+
+    const senderId = typeof sender === "object" ? sender._id : sender;
+    const sameSender = String(senderId) === String(user?._id);
+
+
+    const timeAgo = moment(createdAt).fromNow();
+
   return (
     <div 
     style={{
@@ -26,10 +32,12 @@ const MessageComponent = ({message,user}) => {
       { content && <Typography>{content}</Typography> }
       
     {
-        attachments.length > 0 && attachments.map((attachment,index)=>  {
+        attachments.length > 0 && 
+        attachments.map((attachment,index)=>  {
 
-            const url = attachment.url;
+            const url = attachment.url || attachment.secure_url || attachment.path;
             const file = fileFormat(url);
+
             return <Box key={index}>
                 <a href={url} target='_blank' download style={{ color:'black'}}>
                     { RenderAttachments(file,url)}

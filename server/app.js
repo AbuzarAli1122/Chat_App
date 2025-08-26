@@ -23,9 +23,16 @@ import adminRoute from './routes/admin.js';
 dotenv.config({
     path:"./.env"
 });
-const mongoURI =process.env.MONGO_URI
-connectDB(mongoURI);
 
+const PORT = process.env.PORT || 3000;
+export const envMode = process.env.NODE_ENV.trim() || "PRODUCTION"
+export const adminSecretKey = process.env.ADMIN_SECRET_KEY || 'admin-secret-key';
+export const userSocketIDS = new Map();
+
+
+
+
+// Cloudinary config
 cloudinary.config({
     cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
     api_key: process.env.CLOUDINARY_API_KEY,
@@ -38,26 +45,24 @@ const io = new Server(server,{
     cors: corsOptions
 });
 
+app.set('io', io);
+
+// Middlewares
 app.use(express.json()); 
 app.use(cookieParser())
 app.use(cors(corsOptions))
 
-const PORT = process.env.PORT || 3000;
-export const envMode = process.env.NODE_ENV.trim() || "PRODUCTION"
-export const adminSecretKey = process.env.ADMIN_SECRET_KEY || 'admin-secret-key';
+// Routes
 
-export const userSocketIDS = new Map();
-
-
+app.get('/', (req, res) => {
+    res.send('Hello World');
+});
 
 app.use('/api/v1/user', userRoute);
 app.use('/api/v1/chat', chatRoute);
 app.use('/api/v1/admin', adminRoute);
 
 
-app.get('/', (req, res) => {
-    res.send('Hello World');
-});
 // Socket Middleware
 io.use((socket,next)=>{
     cookieParser()(socket.request, socket.request.res, async(err)=>{
@@ -68,11 +73,13 @@ io.use((socket,next)=>{
 io.on('connection',(socket)=>{
 
     const user = socket.user;
-    
+    const userId = user._id.toString(); 
 
-    userSocketIDS.set(user._id.toString(),socket.id);
+  if (!userSocketIDS.has(userId)) {
+    userSocketIDS.set(userId, []);
+  }
+    userSocketIDS.get(userId).push(socket.id);
 
-    console.log('a user connected', userSocketIDS);
 
     socket.on(NEW_MESSAGE,async({chatId,members,message})=>{
         
@@ -93,10 +100,6 @@ io.on('connection',(socket)=>{
             chat: chatId,
         };
 
-        console.log('Emitting', messageForRealTime)
-
-
-
         const membersSocket = getSockets(members)
         io.to(membersSocket).emit(NEW_MESSAGE,{
             chatId,
@@ -112,15 +115,33 @@ io.on('connection',(socket)=>{
 
     })
 
-    socket.on('disconnect',()=>{
-        console.log('user disconnected');
-        userSocketIDS.delete(user._id.toString());
-    })
+    socket.on("disconnect", () => {
+
+    const sockets = userSocketIDS.get(userId) || [];
+    const updated = sockets.filter((id) => id !== socket.id);
+
+    if (updated.length > 0) {
+      userSocketIDS.set(userId, updated);
+    } else {
+      userSocketIDS.delete(userId);
+    }
+  });
 })
 
 
 app.use(errorMiddleware)
 
-server.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT} in ${envMode} Mode`);
-});
+// Start server only after DB connection
+const startServer = async() => {
+  try {
+    connectDB(process.env.MONGO_URI); 
+    server.listen(PORT, () => {
+      console.log(`Server is running on port ${PORT} in ${envMode} Mode`);
+    });
+  } catch (error) {
+    console.error('Failed to connect to DB:', error);
+    process.exit(1);
+  }
+};
+
+startServer();

@@ -48,19 +48,28 @@ const useAsyncMutation = (mutationHook)=>{
     return [executeMutation,isLoading,data]
 };
 
-const useSocketEvents =(socket,handlers)=>{
-    useEffect(() => {
-        Object.entries(handlers).forEach(([event,handler])=>{
-            socket.on(event,handler)
-        })
-        return()=>{
-            Object.entries(handlers).forEach(([event,handler])=>{
-            socket.off(event,handler)
-        })
-        }
-    },[socket,handlers])
+const useSocketEvents = (socket, handlers) => {
+  useEffect(() => {
+    if (!socket) return;
 
-}
+    const listeners = [];
+
+    Object.entries(handlers).forEach(([event, handler]) => {
+      const listener = (...args) => {
+        handler(...args);
+      };
+      socket.on(event, listener);
+      listeners.push({ event, listener });
+    });
+
+    return () => {
+      listeners.forEach(({ event, listener }) => {
+        socket.off(event, listener);
+      });
+    };
+  }, [socket, handlers]);
+};
+
 
 
 export {

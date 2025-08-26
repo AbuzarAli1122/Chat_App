@@ -8,7 +8,7 @@ const NEW_REQUEST = 'NEW_REQUEST';
 
 // events for socket 
 
-const NEW_MESSAGE = 'NEW_MESSAGE';
+const NEW_MESSAGE = "NEW_MESSAGE";
 
 export {
     ALERT,REFETCH_CHATS,

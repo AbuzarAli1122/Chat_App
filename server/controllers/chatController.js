@@ -1,11 +1,11 @@
-import { ALERT, NEW_ATTACHMENT, NEW_MESSAGE_ALERT, REFETCH_CHATS } from "../constants/events.js";
+import { ALERT, NEW_MESSAGE, NEW_MESSAGE_ALERT, REFETCH_CHATS } from "../constants/events.js";
 import { getOtherMember } from "../lib/helper.js";
 import { TryCatch } from "../middlewares/error.js";
 import { Chat } from "../models/chat.js";
 import { User } from "../models/user.js";
 import { Message } from "../models/message.js";
 
-import { deleteFilesFromCloudinary, emitEvent } from "../utils/feature.js";
+import { deleteFilesFromCloudinary, emitEvent, uploadFilesToCloudinary } from "../utils/feature.js";
 import { ErrorHandler } from "../utils/utility.js";
 
 
@@ -33,9 +33,7 @@ const newGroupChat = TryCatch(async(req,res,next)=>{
 
 const getMyChats = TryCatch(async(req,res,next)=>{
    
-    const chats = await Chat.find({members: req.user }).populate('members', 'name avatar');
-
-
+    const chats = await Chat.find({ members: { $in: [req.user] } }).populate('members', 'name avatar');
 
     const transformedChats = chats.map (({_id,name,members,groupChat})=>{
            
@@ -43,8 +41,12 @@ const getMyChats = TryCatch(async(req,res,next)=>{
         return {
             _id,
             groupChat,
-            name: groupChat ? name : otherMembers.name,
-            avatar: groupChat ? members.slice(0,3).map(({avatar})=> avatar.url) : [otherMembers.avatar.url],
+            name: groupChat 
+            ? name 
+            : otherMembers?.name || "Unknown",
+            avatar: groupChat 
+            ? members.slice(0,3).map(({avatar})=> avatar.url) 
+            : otherMembers?.avatar?.url ? [otherMembers.avatar.url] : [],
             members: members.reduce((prev,curr)=>{
                 if(curr._id.toString() !== req.user.toString()){
                     prev.push(curr._id)
@@ -204,31 +206,45 @@ const sendAttachments = TryCatch(async(req,res,next)=>{
     const { chatId } = req.body;
 
     const files = req.files || [];
+    
       if(files.length<1) return next(new ErrorHandler('Please Upload Attachments',400)) 
 
     if(files.length>5) return next(new ErrorHandler('Maximum 5 attachments allowed',400))
-    
+   
     const [chat, me] = await Promise.all([
         Chat.findById(chatId),
         User.findById(req.user,'name'),
     ]);
     if(!chat) return next(new ErrorHandler('Chat not found',404))
-
     
         // Uploaded files here
 
-        const attachments = [];
-        const messageForDb = {content:'', attachments,sender:me._id,chat:chatId};
-        const messageForRealTime ={...messageForDb,
-        sender:{_id:me._id,name:me.name}
+        const attachments = await uploadFilesToCloudinary(files);
+
+
+        const messageForDb = {
+            content:'', 
+            attachments,
+            sender:me._id,
+            chat:chatId
         };
 
-        const message = await Message.create(messageForDb)
+         const message = await Message.create(messageForDb)
 
-        emitEvent(  req,NEW_ATTACHMENT,chat.members,{
+        const messageForRealTime = {
+            ...messageForDb,
+              _id: message._id,
+        sender: { _id: me._id, name: me.name },
+       
+};
+
+       
+        
+        emitEvent(req, NEW_MESSAGE ,chat.members,{
             message:messageForRealTime,
-            chatId
+            chatId,
         })
+
 
         emitEvent(req,NEW_MESSAGE_ALERT,chat.members,{chatId})
 
@@ -239,37 +255,44 @@ const sendAttachments = TryCatch(async(req,res,next)=>{
 })
 
 
-const getChatDetails = TryCatch(async(req,res,next)=>{
+const getChatDetails = TryCatch(async (req, res, next) => {
+  if (req.query.populate === 'true') {
+    const chat = await Chat.findById(req.params.id)
+      .populate('members', 'name avatar')
+      .lean();
 
-    if(req.query.populate === 'true'){
+    if (!chat) return next(new ErrorHandler('Chat not found', 404));
 
-        const chat = await Chat.findById(req.params.id).populate('members','name avatar').lean()
+    chat.members = chat.members.map(({ _id, name, avatar }) => ({
+      _id,
+      name,
+      avatar: avatar.url
+    }));
 
-        if(!chat) return next(new ErrorHandler('Chat not found',404))
-        
-        chat.members = chat.members.map(({_id,name,avatar}) =>({
-            _id,
-            name,
-            avatar:avatar.url
-        }))
-        
-        return res.status(200).json({
-        success:true,
-        chat
-        })
+    chat.messages = chat.messages.map(msg => ({
+      ...msg,
+      sender: {
+        _id: msg.sender._id,
+        name: msg.sender.name,
+        avatar: msg.sender.avatar.url
+      }
+    }));
 
-    }
-    else
-    {
-        const chat = await Chat.findById(req.params.id)
-        if(!chat) return next(new ErrorHandler('Chat not found',404))
-            return res.status(200).json({
-        success:true,
-        chat
-        })
+    return res.status(200).json({
+      success: true,
+      chat
+    });
+  } else {
+    const chat = await Chat.findById(req.params.id);
+    if (!chat) return next(new ErrorHandler('Chat not found', 404));
 
-    }
-})
+    return res.status(200).json({
+      success: true,
+      chat
+    });
+  }
+});
+
 
 
 const renameGroup = TryCatch(async(req,res,next)=>{

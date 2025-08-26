@@ -113,9 +113,10 @@ const sendFriendRequest = TryCatch(async(req,res,next)=>{
     await Request.create({ 
         sender:req.user,
         receiver:userId
-    })
+    });
 
-    emitEvent(req,NEW_REQUEST,[userId])
+    emitEvent(req,NEW_REQUEST,[userId],{ some: "data checking" })
+    console.log("Friend Request Sent to User ID:", userId);
 
     return res.status(200).json({
         success:true,

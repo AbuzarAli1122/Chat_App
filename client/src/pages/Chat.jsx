@@ -1,57 +1,88 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react'
+import  { useCallback, useMemo, useRef, useState } from 'react'
 import AppLayout from '../Components/layout/AppLayout'
 import { IconButton, Skeleton, Stack } from '@mui/material'
 import { grayColor, orange } from '../constants/color'
 import { AttachFile as AttachFileIcon, Send as SendIcon } from '@mui/icons-material'
 import { InputBox } from '../Components/styles/StyledComponent'
 import FileMenu from '../Components/dialogs/FileMenu'
-import { sampleMessage } from '../constants/sampleData'
 import MessageComponent from '../Components/shared/MessageComponent'
 import { getSocket } from '../socket'
 import { NEW_MESSAGE } from '../constants/events'
-import { useChatDetailsQuery } from '../redux/api/api'
-import { useSocketEvents } from '../hooks/hook'
+import { useChatDetailsQuery, useGetMessagesQuery } from '../redux/api/api'
+import { useErrors, useSocketEvents } from '../hooks/hook'
+import {useInfiniteScrollTop} from '6pp'
+import { useDispatch } from 'react-redux'
+import { setIsFileMenu } from '../redux/reducers/misc'
 
 
-const user = {
-  _id:"asdadas",
-  name:'zale'
-}
-const Chat = ({chatId}) => {
+const Chat = ({chatId, user}) => {
+
   const containerRef = useRef(null);
-  const socket = getSocket()
-
-  const chatDetails  =useChatDetailsQuery({chatId,skip:!chatId});
+  const socket = getSocket();
+  const dispatch = useDispatch();
 
   const [message, setMessage] = useState('');
-  
-  const [messages,setMessages] = useState([])
+  const [messages,setMessages] = useState([]);
+  const [page, setPage] = useState(1);
+  const [fileMenuAnchor, setFileMenuAnchor] = useState(null);
 
-  const members = chatDetails.data?.chat?.members
+
+
+  const chatDetailsData = useChatDetailsQuery(
+    {chatId}, 
+    { skip: !chatId }
+  );
+
+  const oldMessagesChunk = useGetMessagesQuery({
+    chatId,
+    page
+  })
+
+  const {data: oldMessages,setData: setOldMessages} = useInfiniteScrollTop(
+    containerRef,
+    oldMessagesChunk.data?.totalPages,
+    page,
+    setPage,
+    oldMessagesChunk.data?.messages,
+  )
+
+  const errors = [
+    {isError: chatDetailsData.isError, error: chatDetailsData.error},
+    {isError: oldMessagesChunk.isError, error: oldMessagesChunk.error}
+  ];
+
+  const members = chatDetailsData?.chat?.members || [];
 
   const submitHandler = (e)=>{
     e.preventDefault();
     if(!message.trim()) return;
-
+    // Emitting message to server
     socket.emit(NEW_MESSAGE,{chatId,members,message})
     setMessage('')
   };
 
-  const newMessagesHandler = useCallback((data) => {
-    setMessages((prev) => [...prev, data.message]);
-      console.log('checkingserverData:',data.message)
 
-  },[])
+const newMessagesHandler = useCallback((data) => {
+   console.log("📩 Received NEW_MESSAGE:", data);
+   setMessages((prev) => [...prev, data.message]);
+}, []);
 
 
-  const eventHandler = { [NEW_MESSAGE]: newMessagesHandler };
+const eventHandler = useMemo(() => ({
+  [NEW_MESSAGE]: newMessagesHandler
+}), [newMessagesHandler]);
   
-  useSocketEvents(socket,eventHandler)
+  useSocketEvents(socket,eventHandler);
+  useErrors(errors);
 
-  console.log('messagesChecking',messages)
+  const allMessages = [...oldMessages, ...messages];
 
+  const handleFileMenuOpen = (e) => {
+    dispatch(setIsFileMenu(true));
+    setFileMenuAnchor(e.currentTarget);
+  };
 
-  return chatDetails.isLoading ?( 
+  return chatDetailsData.isLoading  ?( 
   <Skeleton/>
   ) : (
    <>
@@ -65,8 +96,8 @@ const Chat = ({chatId}) => {
    sx={{ overflowY: 'auto', overflowX:'hidden' }}
    >
 
-{ messages.map(i =>(
-  <MessageComponent key={i._id} message={i} user={user} />
+{ allMessages.map(i =>(
+  <MessageComponent key={i._id || Math.random()} message={i} user={user} />
 ))}
    </Stack>
 
@@ -83,6 +114,7 @@ const Chat = ({chatId}) => {
         left: '1.5rem',
         rotate:'30deg',
       }}
+      onClick={handleFileMenuOpen}
       >
         <AttachFileIcon/>
       </IconButton>
@@ -108,7 +140,7 @@ const Chat = ({chatId}) => {
 
     </Stack>
    </form>
-   <FileMenu />
+   <FileMenu anchorE1={fileMenuAnchor} chatId={chatId}   />
    </>
   )
 }
