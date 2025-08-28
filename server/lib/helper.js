@@ -8,7 +8,6 @@ export const getOtherMember = (members,userId)=>{
 
 export const getSockets = (users = []) => {
   const sockets = users.flatMap((user) => userSocketIDS.get(user.toString()) || []);
-  console.log("✅ Final socket list:", sockets);
   return sockets;
 };
 

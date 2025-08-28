@@ -9,25 +9,30 @@ import ChatList from '../specific/ChatList';
 import Profile from '../specific/Profile';
 import Header from './Header';
 import { getSocket } from '../../socket';
-import { NEW_MESSAGE_ALERT, NEW_REQUEST } from '../../constants/events';
+import { NEW_MESSAGE_ALERT, NEW_REQUEST, REFETCH_CHATS } from '../../constants/events';
 import { useCallback, useEffect } from 'react';
-import { incrementNotificationCount } from '../../redux/reducers/chat';
+import { incrementNotificationCount, setNewMessagesAlert } from '../../redux/reducers/chat';
+import { getOrSavedFromStorage } from '../../lib/features';
 
 const AppLayout = () => WrappedComponent => {
 
   return props => {
+
     const params = useParams();
     const chatId = params.chatId;
 
     const socket = getSocket()
-
     const dispatch = useDispatch();
-
     const {isMobile} = useSelector(state => state.misc)
-    const {user} = useSelector(state => state.auth)
-    const {isLoading,data,isError,error,refetch} = useMyChatsQuery('');
+    const {user} = useSelector(state => state.auth);
+    const {newMessagesAlert} = useSelector(state => state.chat)
 
-   useErrors([{isError,error}])
+    const {isLoading,data,isError,error,refetch} = useMyChatsQuery('');
+   useErrors([{isError,error}]);
+
+    useEffect(() => {
+      getOrSavedFromStorage({key:NEW_MESSAGE_ALERT, value:newMessagesAlert})
+    },[newMessagesAlert])
 
     const handleDeleteChat = (e,_id , groupChat)=>{
       e.preventDefault();
@@ -36,15 +41,24 @@ const AppLayout = () => WrappedComponent => {
     }
     const handleMobileClose = ()=> dispatch(setIsMobile(false))
 
-// const newMessagesAlertHandler = useCallback(()=>{},[]);
+const newMessagesAlertListener= useCallback((data)=>{
+  if(data.chatId === chatId) return;
+  dispatch(setNewMessagesAlert(data));
 
-const newRequestHandler = useCallback((data)=>{
+},[chatId]);
+
+const newRequestListener = useCallback(()=>{
   dispatch(incrementNotificationCount());
 },[dispatch]);
 
+const refetchListener = useCallback((data)=>{
+  refetch();
+},[refetch]);
+
 const eventHandlers = { 
-  // [NEW_MESSAGE_ALERT]: newMessagesAlertHandler,
-  [NEW_REQUEST]: newRequestHandler,
+  [NEW_MESSAGE_ALERT]: newMessagesAlertListener,
+  [NEW_REQUEST]: newRequestListener,
+  [REFETCH_CHATS]: refetchListener,
  }  
 
  useSocketEvents(socket,eventHandlers);
@@ -63,6 +77,7 @@ const eventHandlers = {
             chats={data?.message} 
             chatId={chatId}
             handleDeleteChat={handleDeleteChat}
+            newMessagesAlert={newMessagesAlert}
             /> 
             </Drawer>
           )
@@ -84,6 +99,7 @@ const eventHandlers = {
             chats={data?.message} 
             chatId={chatId}
             handleDeleteChat={handleDeleteChat}
+            newMessagesAlert={newMessagesAlert}
             /> 
            }
           </Grid>

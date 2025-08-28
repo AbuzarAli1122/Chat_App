@@ -266,17 +266,18 @@ const getChatDetails = TryCatch(async (req, res, next) => {
     chat.members = chat.members.map(({ _id, name, avatar }) => ({
       _id,
       name,
-      avatar: avatar.url
+      avatar
     }));
 
-    chat.messages = chat.messages.map(msg => ({
+    chat.messages = (chat.messages || []).map(msg => ({
       ...msg,
-      sender: {
+      sender: msg.sender ? {
         _id: msg.sender._id,
         name: msg.sender.name,
-        avatar: msg.sender.avatar.url
-      }
+        avatar: msg.sender.avatar
+      }: null
     }));
+
 
     return res.status(200).json({
       success: true,

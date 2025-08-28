@@ -34,7 +34,7 @@ const ChatItem = ({
         </Typography>
         {
             newMesageAlert && (
-                <Typography>{newMesageAlert.count} New Message</Typography>
+                <Typography color='error' fontSize={'0.9rem'}>{newMesageAlert.count} New Message</Typography>
             )
         }
     </Stack>

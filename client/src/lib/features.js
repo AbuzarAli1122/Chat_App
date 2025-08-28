@@ -19,6 +19,7 @@ import moment from "moment";
  }
 
 const transformImage = (url = "", width = 100) => {
+if (typeof url !== "string") return "";
   const newUrl = url.replace("upload/", `upload/dpr_auto/w_${width}/`);
 
   return newUrl;
@@ -34,5 +35,17 @@ const transformImage = (url = "", width = 100) => {
      }
      return last7Days;
  };
- export {fileFormat,transformImage,getLast7Days};
+
+ const getOrSavedFromStorage=({key , value , get}) => {
+    if(get) return localStorage.getItem(key) ? JSON.parse(localStorage.getItem(key)) : null;
+    else localStorage.setItem(key, JSON.stringify(value))
+ }
+
+
+ export {
+    fileFormat,
+    transformImage,
+    getLast7Days,
+    getOrSavedFromStorage
+};
 

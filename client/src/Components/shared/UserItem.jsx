@@ -6,7 +6,7 @@ import { transformImage } from '../../lib/features'
  
 const UserItem = ({user,handler,handlerIsLoading,isAdded=false, styling = {} }) => {
 
-    const {name,_id,avatar} = user
+    const {name,_id,avatar} = user;
   return (
     <ListItem >
         <Stack direction={'row'} alignItems={'center'} spacing={'1rem'} width={'100%'} {...styling}>

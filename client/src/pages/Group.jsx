@@ -10,6 +10,9 @@ import {sampleChats, sampleUsers} from '../constants/sampleData'
 import {Edit as EditIcon} from '@mui/icons-material';
 import {Done as DoneIcon} from '@mui/icons-material';
 import UserItem from '../Components/shared/UserItem';
+import { useAsyncMutation, useErrors } from '../hooks/hook';
+import { LayoutLoader } from '../Components/layout/Loaders';
+import { useChatDetailsQuery, useMyGroupsQuery, useRenameGroupMutation } from '../redux/api/api';
 const ConfirmDeleteDialog = lazy(()=> import('../Components/dialogs/ConfirmDeleteDialog'))
 const AddMemberDialog = lazy(()=> import('../Components/dialogs/AddMemberDialog'))
 
@@ -24,12 +27,51 @@ const Group = () => {
   const [groupName,setGroupName] = useState('')
   const [groupNameUpdatedValue,setGroupNameUpdatedValue] = useState('')
   const [confirmDeleteDialog,setConfirmDeleteDialog] = useState(false)
+  const [members,setMembers] = useState([])
 
 
   const [searchParams] = useSearchParams();
   const chatId = searchParams.get('group');
-  
   const navigate = useNavigate()
+
+  const myGroups = useMyGroupsQuery();
+  const groupDetails = useChatDetailsQuery(
+    {chatId , populate : true},
+    { skip: !chatId }
+  ); 
+  const [updateGroup , isLoadingGroupName] = useAsyncMutation(useRenameGroupMutation)
+
+  const errors = [
+    {
+    isError: myGroups.isError,
+    error: myGroups.error
+  },
+   {
+    isError: groupDetails.isError,
+    error: groupDetails.error
+  },
+]
+  useErrors(errors)
+
+  useEffect(()=>{
+    const groupData = groupDetails.data;
+    if(groupData){
+      setGroupName(groupData.chat.name)
+      setGroupNameUpdatedValue(groupData.chat.name)
+      setMembers(groupData.chat.members )
+    }
+
+    return()=>{
+      setGroupName('')
+      setGroupNameUpdatedValue('')
+      setMembers([])
+      setIsEdit(false)
+    }
+
+  },[groupDetails.data])
+
+  
+
   const navigateBack =()=>{
     navigate('/')
   };
@@ -44,6 +86,7 @@ const handleMobileClose = ()=>{
 
 const updateGroupName = ()=>{
   setIsEdit(false)
+  updateGroup('Updating group name...',{chatId,name:groupNameUpdatedValue})
 }
 
 const openConfirmDeleteHandler = ()=>{
@@ -126,14 +169,14 @@ const GroupName = <>
         isEdit ?  
         <>
         <TextField value={groupNameUpdatedValue} onChange={e=>setGroupNameUpdatedValue(e.target.value)}/>
-        <IconButton onClick={updateGroupName}>
+        <IconButton onClick={updateGroupName} disabled = {isLoadingGroupName} >
           <DoneIcon/>
         </IconButton>
         </>
         : 
         <>
         <Typography variant='h4' fontSize={{xs:'1.5rem',sm:'2rem'}} >{groupName}</Typography>
-        <IconButton onClick={()=> setIsEdit(true)}>
+        <IconButton disabled={isLoadingGroupName} onClick={()=> setIsEdit(true)}>
         <EditIcon/>
         </IconButton>
         </>
@@ -161,7 +204,7 @@ const GroupName = <>
   </Stack>
 
 
-  return (
+  return myGroups.isLoading ? <LayoutLoader/> :  (
     <Grid container height={'100vh'}>
 
       <Grid item size={{sm:4}}
@@ -171,7 +214,7 @@ const GroupName = <>
       
       }}
       >
-        <GroupList myGroups={sampleChats} chatId={chatId}/>
+        <GroupList myGroups={myGroups?.data?.groups} chatId={chatId}/>
 
       </Grid>
 
@@ -194,7 +237,10 @@ const GroupName = <>
         alignSelf={'center'}
         variant='h5'
 
-        >Members</Typography>
+        >
+          Members
+          
+        </Typography>
 
         <Stack
         maxWidth={'45rem'}
@@ -211,7 +257,7 @@ const GroupName = <>
         overflow={'auto'}
         >
           {
-            sampleUsers.map((i)=>(
+            members.map((i)=>(
               <UserItem key={i._id} user={i} isAdded handler={removeMemberHandler}
               styling={{
                 boxShadow : '0 0 0.5rem rgba(0,0,0,0.2)',
@@ -253,7 +299,7 @@ const GroupName = <>
         display:{xs:'block',sm:'none'}
       }}
       > 
-      <GroupList w={'70vw'} myGroups={sampleChats} chatId={chatId}/>
+      <GroupList w={'70vw'} myGroups={myGroups?.data?.groups} chatId={chatId}/>
       </Drawer>
 
     </Grid>
