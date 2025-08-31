@@ -1,18 +1,19 @@
 import { Drawer, Grid, Skeleton } from '@mui/material';
 import { useDispatch, useSelector } from 'react-redux';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useErrors, useSocketEvents } from '../../hooks/hook';
 import { useMyChatsQuery } from '../../redux/api/api';
-import { setIsMobile } from '../../redux/reducers/misc';
+import { setIsDeleteMenu, setIsMobile, setSelectedDeleteChat } from '../../redux/reducers/misc';
 import Title from '../shared/Title';
 import ChatList from '../specific/ChatList';
 import Profile from '../specific/Profile';
 import Header from './Header';
 import { getSocket } from '../../socket';
 import { NEW_MESSAGE_ALERT, NEW_REQUEST, REFETCH_CHATS } from '../../constants/events';
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { incrementNotificationCount, setNewMessagesAlert } from '../../redux/reducers/chat';
 import { getOrSavedFromStorage } from '../../lib/features';
+import DeleteChatMenu from '../dialogs/DeleteChatMenu';
 
 const AppLayout = () => WrappedComponent => {
 
@@ -20,6 +21,8 @@ const AppLayout = () => WrappedComponent => {
 
     const params = useParams();
     const chatId = params.chatId;
+    const deleteMenuAnchor = useRef(null);
+    const navigate = useNavigate();
 
     const socket = getSocket()
     const dispatch = useDispatch();
@@ -34,11 +37,12 @@ const AppLayout = () => WrappedComponent => {
       getOrSavedFromStorage({key:NEW_MESSAGE_ALERT, value:newMessagesAlert})
     },[newMessagesAlert])
 
-    const handleDeleteChat = (e,_id , groupChat)=>{
-      e.preventDefault();
-      console.log(_id,groupChat);
+    const handleDeleteChat = (e,chatId , groupChat)=>{
+      dispatch(setIsDeleteMenu(true))
+      dispatch(setSelectedDeleteChat({chatId,groupChat}))
+      deleteMenuAnchor.current = e.currentTarget;
+    };
 
-    }
     const handleMobileClose = ()=> dispatch(setIsMobile(false))
 
 const newMessagesAlertListener= useCallback((data)=>{
@@ -53,7 +57,8 @@ const newRequestListener = useCallback(()=>{
 
 const refetchListener = useCallback((data)=>{
   refetch();
-},[refetch]);
+  navigate('/')
+},[refetch,navigate]);
 
 const eventHandlers = { 
   [NEW_MESSAGE_ALERT]: newMessagesAlertListener,
@@ -67,6 +72,7 @@ const eventHandlers = {
       <>
         <Title />
         <Header />
+      <DeleteChatMenu dispatch={dispatch} deleteMenuAnchor={deleteMenuAnchor}  />
 
         {
           isLoading ? (<Skeleton/>):

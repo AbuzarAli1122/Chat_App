@@ -15,6 +15,7 @@ import { useDispatch } from 'react-redux'
 import { setIsFileMenu } from '../redux/reducers/misc'
 import { removeNewMessagesAlert } from '../redux/reducers/chat'
 import { TypingLoader } from '../Components/layout/Loaders'
+import { useNavigate } from 'react-router-dom'
 
 
 const Chat = ({chatId, user}) => {
@@ -22,6 +23,7 @@ const Chat = ({chatId, user}) => {
   const containerRef = useRef(null);
   const socket = getSocket();
   const dispatch = useDispatch();
+  const navigate = useNavigate();
 
   const [message, setMessage] = useState('');
   const [messages,setMessages] = useState([]);
@@ -101,6 +103,10 @@ const Chat = ({chatId, user}) => {
     }
   },[messages])
 
+  useEffect(() => {
+    if(!chatDetailsData.data?.chat) return navigate('/');
+  }, [chatDetailsData.data])
+
 const newMessagesListener = useCallback((data) => {
    if(data.chatId !== chatId) return;
    setMessages((prev) => [...prev, data.message]);
@@ -117,17 +123,20 @@ const stopTypingListener = useCallback((data) => {
 }, [chatId]);
 
 const alertListener = useCallback(
-  (content) => {
-    const messageForRealTime = {
-              content,
+  (data) => {
+     console.log("🚨 ALERT RECEIVED:", data); 
+     if (data.chatId && data.chatId !== chatId) return;
+    const messageForAlert = {
+              _id:Date.now(),
+              content:data.message,
               sender:{
-                  _id:'aasdasasccascasc',
+                  _id:'system',
                   name:'Admin'
               },
               chat:chatId,
               createdAt: new Date().toISOString()
           };
-    setMessages((prev) => [...prev, messageForRealTime]);
+    setMessages((prev) => [...prev, messageForAlert]);
 }, [chatId]);
 
 const eventHandler = useMemo(() => ({
@@ -136,8 +145,7 @@ const eventHandler = useMemo(() => ({
   [STOP_TYPING]: stopTypingListener,
   [ALERT]: alertListener,
 
-
-}), [newMessagesListener,startTypingListener]);
+}), [newMessagesListener,startTypingListener,alertListener,stopTypingListener]);
   
   useSocketEvents(socket,eventHandler);
   useErrors(errors);
@@ -164,6 +172,7 @@ const eventHandler = useMemo(() => ({
    >
 
 { allMessages.map(i =>(
+
   <MessageComponent key={i._id || Math.random()} message={i} user={user} />
 ))}
 

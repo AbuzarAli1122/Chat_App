@@ -37,7 +37,6 @@ const newUser = async (req, res,next) => {
         sendToken(res,user,201,"User Created Successfully")
 
     } catch (error) {
-        console.error(error);
         res.status(500).json({ message: 'Error creating user' });
     }
 };
@@ -116,7 +115,6 @@ const sendFriendRequest = TryCatch(async(req,res,next)=>{
     });
 
     emitEvent(req,NEW_REQUEST,[userId],{ some: "data checking" })
-    console.log("Friend Request Sent to User ID:", userId);
 
     return res.status(200).json({
         success:true,
